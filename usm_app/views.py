@@ -8,8 +8,6 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from rest_framework.authentication import get_authorization_header
 
-# User.objects.create_user(username='testuser', password='testpassword')
-
 # Create your views here.
 class RegisterView(APIView):
     authentication_classes = [TokenAuthentication]  # Token authentication for this view
@@ -43,7 +41,6 @@ class RegisterView(APIView):
 
         # Return the response with the token
         return Response({'token': token.key, 'message': 'User registered successfully!'})
-    
 class LoginView(APIView):
     authentication_classes = []  # No authentication for login
     permission_classes = []  # No permission restriction for login
@@ -66,8 +63,6 @@ class LoginView(APIView):
             return Response({'token': token.key})
         else:
             return Response({'error': 'Invalid credentials'}, status=401)
-    
-
 class ProfileView(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
@@ -76,8 +71,6 @@ class ProfileView(APIView):
         
         user = request.user
         return Response({'username': user.username})
-
-
 # Only User with ID 1 can delete a user (Admin)
 class DeleteUser(APIView):
     authentication_classes = [TokenAuthentication]
@@ -98,12 +91,33 @@ class DeleteUser(APIView):
             user.delete()  # Delete the user
             return Response({'message': 'User deleted successfully'}, status=200)
         except User.DoesNotExist:
-            return Response({'error': 'User not found'}, status=404)
-        
+            return Response({'error': 'User not found'}, status=404)       
 class UserListView(APIView):
     authentication_classes = []
     permission_classes = []
     def get(self, request):
        
-        user = User.objects.all().values('id', 'username', 'password', 'firstname', 'lastname', 'role', 'status')   #password is Django hash code protected
+        user = User.objects.all().values('id', 'username', 'password', 'first_name', 'last_name')   #password is Django hash code protected
         return Response({'user': list(user)}, status=200)
+class ResetPassword(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        # Check if the user is authenticated and if the ID is 1 (Admin)
+        if request.user.id != 1:
+            return Response({'error': 'You are not authorized to Register. Only Admin Can Create New Users'}, status=401)
+        # Implement password reset logic here
+        user_id = request.data.get('id')
+        new_password = request.data.get('new_password')
+
+        if not user_id or not new_password:
+            return Response({'error': 'Fields cannot be empty'}, status=400)
+
+        try:
+            user = User.objects.get(id=user_id)
+            user.set_password(new_password)
+            user.save()
+            return Response("Password reset successfully", status=200)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=404)
