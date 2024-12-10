@@ -56,7 +56,7 @@ class LoginView(APIView):
 
         # Authenticate user
         user = authenticate(username=username, password=password)
-
+        print(user)
         if user:
             # Generate or retrieve token
             token, _ = Token.objects.get_or_create(user=user)
@@ -119,5 +119,25 @@ class ResetPassword(APIView):
             user.set_password(new_password)
             user.save()
             return Response("Password reset successfully", status=200)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=404)
+        
+
+
+
+class UpdateView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, user_id):
+        try:
+            user = User.objects.get(id=user_id)
+            allowed_fields = ['first_name', 'last_name']
+            updated_data = {field: request.data.get(field) for field in allowed_fields if request.data.get(field) is not None}
+            for field, value in updated_data.items():
+                setattr(user, field, value)
+
+            user.save()
+            return Response({'message': 'User updated successfully'}, status=200)
         except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=404)
