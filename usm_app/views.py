@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from rest_framework.authentication import get_authorization_header
+from .models import UserRole
 
 # Create your views here.
 class RegisterView(APIView):
@@ -95,10 +96,33 @@ class DeleteUser(APIView):
 class UserListView(APIView):
     authentication_classes = []
     permission_classes = []
+
+
     def get(self, request):
-       
-        user = User.objects.all().values('id', 'username', 'password', 'first_name', 'last_name')   #password is Django hash code protected
-        return Response({'user': list(user)}, status=200)
+        # Fetch all users
+        users = User.objects.all()
+
+        # Create a list of users with role and is_active from UserRole
+        user_list = []
+        for user in users:
+            try:
+                user_role = UserRole.objects.get(user=user)  # Fetch associated UserRole
+                role = user_role.role
+                is_active = user_role.is_active
+            except UserRole.DoesNotExist:
+                role = "No role assigned"
+                is_active = False
+
+            user_list.append({
+                "id": user.id,
+                "username": user.username,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "role": role,
+                "is_active": is_active,
+            })
+
+        return Response({'users': user_list}, status=200)
 class ResetPassword(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
@@ -122,9 +146,6 @@ class ResetPassword(APIView):
         except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=404)
         
-
-
-
 class UpdateView(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
@@ -139,5 +160,25 @@ class UpdateView(APIView):
 
             user.save()
             return Response({'message': 'User updated successfully'}, status=200)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=404)
+
+
+class ManageRoleView(APIView):
+    authentication_classes = []
+    permission_classes = []
+    def post(self, request, user_id):
+        try:
+            user = User.objects.get(id=user_id)
+            role = request.data.get('role')
+            is_active = request.data.get('is_active', True)
+
+            user_role, created = UserRole.objects.get_or_create(user=user)
+            user_role.role = role
+            user_role.is_active = is_active
+            user_role.save()
+
+            message = 'Role and status updated successfully!' if not created else 'Role and status created successfully!'
+            return Response({'message': message, 'user_id': user_id, 'role': role, 'is_active': is_active})
         except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=404)
