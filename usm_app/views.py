@@ -47,7 +47,7 @@ class LoginView(APIView):
     permission_classes = []  # No permission restriction for login
 
     def post(self, request):
-        id = request.data.get('id')
+        
         username = request.data.get('username')
         password = request.data.get('password')
 
@@ -57,11 +57,15 @@ class LoginView(APIView):
 
         # Authenticate user
         user = authenticate(username=username, password=password)
-        print(user)
+        print('Username: ', user)
         if user:
             # Generate or retrieve token
             token, _ = Token.objects.get_or_create(user=user)
-            return Response({'token': token.key})
+            user_role, created = UserRole.objects.get_or_create(user=user)
+            user_role.login_count += 1
+            user_role.save()
+            print('Login Count: ',user_role.login_count)
+            return Response({'token': token.key, 'Login Count': user_role.login_count})
         else:
             return Response({'error': 'Invalid credentials'}, status=401)
 class ProfileView(APIView):
@@ -109,9 +113,11 @@ class UserListView(APIView):
                 user_role = UserRole.objects.get(user=user)  # Fetch associated UserRole
                 role = user_role.role
                 is_active = user_role.is_active
+                login_count = user_role.login_count
             except UserRole.DoesNotExist:
                 role = "No role assigned"
                 is_active = False
+                login_count = 0
 
             user_list.append({
                 "id": user.id,
@@ -120,6 +126,7 @@ class UserListView(APIView):
                 "last_name": user.last_name,
                 "role": role,
                 "is_active": is_active,
+                "login_count": login_count
             })
 
         return Response({'users': user_list}, status=200)
@@ -182,3 +189,4 @@ class ManageRoleView(APIView):
             return Response({'message': message, 'user_id': user_id, 'role': role, 'is_active': is_active})
         except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=404)
+        

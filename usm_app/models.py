@@ -5,6 +5,7 @@ class UserRole(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     role = models.CharField(max_length=50, default='customer')
     is_active = models.BooleanField(default=True) 
+    login_count = models.PositiveIntegerField(default=0) 
 
     def __str__(self):
         return f"{self.user.username} - {self.role} - {'Active' if self.is_active else 'Inactive'}"
